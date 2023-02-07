@@ -7,6 +7,7 @@ from camunda.client.engine_client import ENGINE_LOCAL_BASE_URL
 from camunda.utils.log_utils import log_with_context
 from camunda.utils.response_utils import raise_exception_if_not_ok
 from camunda.utils.utils import str_to_list
+from camunda.utils.http_utils import http
 from camunda.utils.auth_basic import AuthBasic, obfuscate_password
 from camunda.variables.variables import Variables
 
@@ -50,7 +51,7 @@ class ExternalTaskClient:
         if self.is_debug:
             self._log_with_context(f"trying to fetch and lock with request payload: {body}")
         http_timeout_seconds = self.__get_fetch_and_lock_http_timeout_seconds()
-        response = requests.post(url, headers=self._get_headers(), json=body, timeout=http_timeout_seconds)
+        response = http.post(url, headers=self._get_headers(), json=body, timeout=http_timeout_seconds)
         raise_exception_if_not_ok(response)
 
         resp_json = response.json()
@@ -63,17 +64,16 @@ class ExternalTaskClient:
         return (self.config["timeoutDeltaMillis"] + self.config["asyncResponseTimeout"]) / 1000
 
     def _get_topics(self, topic_names, process_variables):
-        topics = []
-        for topic in str_to_list(topic_names):
-            topics.append({
+        return [
+            {
                 "topicName": topic,
                 "lockDuration": self.config["lockDuration"],
-                "processVariables": process_variables if process_variables else {},
-                # enables Camunda Extension Properties
-                "includeExtensionProperties": self.config.get("includeExtensionProperties") or False
-
-            })
-        return topics
+                "processVariables": process_variables or {},
+                "includeExtensionProperties": self.config.get("includeExtensionProperties") or False,
+                "businessKey": self.config.get("businessKey"),
+            }
+            for topic in str_to_list(topic_names)
+        ]
 
     def complete(self, task_id, global_variables, local_variables=None):
         url = self.get_task_complete_url(task_id)
@@ -84,7 +84,7 @@ class ExternalTaskClient:
             "localVariables": Variables.format(local_variables)
         }
 
-        response = requests.post(url, headers=self._get_headers(), json=body, timeout=self.http_timeout_seconds)
+        response = http.post(url, headers=self._get_headers(), json=body, timeout=self.http_timeout_seconds)
         raise_exception_if_not_ok(response)
         return response.status_code == HTTPStatus.NO_CONTENT
 
@@ -103,7 +103,7 @@ class ExternalTaskClient:
         if error_details:
             body["errorDetails"] = error_details
 
-        response = requests.post(url, headers=self._get_headers(), json=body, timeout=self.http_timeout_seconds)
+        response = http.post(url, headers=self._get_headers(), json=body, timeout=self.http_timeout_seconds)
         raise_exception_if_not_ok(response)
         return response.status_code == HTTPStatus.NO_CONTENT
 
@@ -123,7 +123,7 @@ class ExternalTaskClient:
         if self.is_debug:
             self._log_with_context(f"trying to report bpmn error with request payload: {body}")
 
-        resp = requests.post(url, headers=self._get_headers(), json=body, timeout=self.http_timeout_seconds)
+        resp = http.post(url, headers=self._get_headers(), json=body, timeout=self.http_timeout_seconds)
         resp.raise_for_status()
         return resp.status_code == HTTPStatus.NO_CONTENT
 

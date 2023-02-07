@@ -2,16 +2,16 @@
 import json
 
 class Variables:
-    def __init__(self, variables={}):
+    def __init__(self, variables=None):
+        if variables is None:
+            variables = {}
         self.variables = variables
 
     def get_variable(self, variable_name, with_meta=False):
         variable = self.variables.get(variable_name, None)
         if not variable:
             return None
-        if with_meta:
-            return variable
-        return variable["value"]
+        return variable if with_meta else variable["value"]
 
     @classmethod
     def format(cls, variables):
@@ -25,10 +25,13 @@ class Variables:
         """
         formatted_vars = {}
         if variables:
-            formatted_vars = {
-                k: v if (isinstance(v, dict) and "value" in v.keys()) else {"value": v}
-                for k, v in variables.items()
-            }
+            for i in variables.keys():
+                if type(variables[i]) in [bool, int, float, str]:
+                    formatted_vars[i] = {"value": variables[i]}
+                elif type(variables[i]) == dict and "value" in variables[i] and type(variables[i]['value']) in [bool, int, float, str]:
+                    formatted_vars[i] = variables[i]
+                else:
+                    formatted_vars[i] = {"value": json.dumps(variables[i]), "type": "json"}
         return formatted_vars
 
     def to_dict(self):
@@ -39,7 +42,9 @@ class Variables:
             ->
             {"var1": 1, "var2": True}
         """
-        result = {}
-        for k, v in self.variables.items():
-            result[k] = v["value"]
-        return result
+        return {
+            k: json.loads(v["value"])
+            if 'type' in v and v['type'] == "Json"
+            else v["value"]
+            for k, v in self.variables.items()
+        }

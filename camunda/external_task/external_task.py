@@ -48,7 +48,11 @@ class ExternalTask:
     def set_task_result(self, task_result):
         self._task_result = task_result
 
-    def complete(self, global_variables={}, local_variables={}):
+    def complete(self, global_variables=None, local_variables=None):
+        if global_variables is None:
+            global_variables = {}
+        if local_variables is None:
+            local_variables = {}
         self._task_result = TaskResult.success(self, global_variables, local_variables)
         return self._task_result
 
@@ -68,7 +72,9 @@ class ExternalTask:
         retries = int(retries - 1) if retries and retries >= 1 else max_retries
         return retries
 
-    def bpmn_error(self, error_code, error_message, variables={}):
+    def bpmn_error(self, error_code, error_message, variables=None):
+        if variables is None:
+            variables = {}
         self._task_result = TaskResult.bpmn_error(
             self,
             error_code=error_code,
@@ -86,14 +92,20 @@ class TaskResult:
         self,
         task,
         success=False,
-        global_variables={},
-        local_variables={},
+        global_variables=None,
+        local_variables=None,
         bpmn_error_code=None,
         error_message=None,
-        error_details={},
+        error_details=None,
         retries=0,
-        retry_timeout=300000,
+        retry_timeout=300000
     ):
+        if global_variables is None:
+            global_variables = {}
+        if local_variables is None:
+            local_variables = {}
+        if error_details is None:
+            error_details = {}
         self.task = task
         self.success_state = success
         self.global_variables = global_variables
@@ -105,7 +117,9 @@ class TaskResult:
         self.retry_timeout = retry_timeout
 
     @classmethod
-    def success(cls, task, global_variables, local_variables={}):
+    def success(cls, task, global_variables, local_variables=None):
+        if local_variables is None:
+            local_variables = {}
         return TaskResult(
             task,
             success=True,
@@ -125,7 +139,9 @@ class TaskResult:
         )
 
     @classmethod
-    def bpmn_error(cls, task, error_code, error_message, variables={}):
+    def bpmn_error(cls, task, error_code, error_message, variables=None):
+        if variables is None:
+            variables = {}
         return TaskResult(
             task,
             success=False,
